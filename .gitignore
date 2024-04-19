@@ -3,3 +3,5 @@ tws_settings/
 ssh/
 /config/
 .python-version
+/.venv
+*.txt

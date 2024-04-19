@@ -20,17 +20,28 @@ RUN apt-get update -y && \
   ca-certificates \
   unzip && \
   apt-get clean && \
-  rm -rf /var/lib/apt/lists/* && \
+  rm -rf /var/lib/apt/lists/*
+
+# Install Java
+ENV URL="https://download.bell-sw.com/java/11.0.22+12/bellsoft-jre11.0.22+12-linux-aarch64-full.tar.gz"
+ENV ARCHIVE_NAME="bellsoft-jre11.0.22+12-linux-aarch64-full.tar.gz"
+ENV JVM_DIR="jre-11.0.22-full"
+ENV JAVA_HOME=/opt/java
+ENV PATH=$JAVA_HOME/bin:$PATH
+RUN curl -sSOL $URL && \
+    tar -xvzf $ARCHIVE_NAME && \
+    mv $JVM_DIR /opt/java
+  
 # Install IB Gateway
-# Use this instead of "RUN curl .." to install a local file:
-#COPY ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh .
-  curl -sSOL https://github.com/gnzsnz/ib-gateway-docker/releases/download/ibgateway-${IB_GATEWAY_RELEASE_CHANNEL}%40${IB_GATEWAY_VERSION}/ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh && \
+RUN curl -sSOL https://github.com/gnzsnz/ib-gateway-docker/releases/download/ibgateway-${IB_GATEWAY_RELEASE_CHANNEL}%40${IB_GATEWAY_VERSION}/ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh && \
   curl -sSOL https://github.com/gnzsnz/ib-gateway-docker/releases/download/ibgateway-${IB_GATEWAY_RELEASE_CHANNEL}%40${IB_GATEWAY_VERSION}/ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh.sha256 && \
   sha256sum --check ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh.sha256 && \
   chmod a+x ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh && \
-  ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh -q -dir /root/Jts/ibgateway/${IB_GATEWAY_VERSION} &&\
-  # Install IBC
-  curl -sSOL https://github.com/IbcAlpha/IBC/releases/download/${IBC_VERSION}-Update.1/IBCLinux-${IBC_VERSION}.zip && \
+  sed -i 's/-Djava.ext.dirs="$app_java_home\/lib\/ext:$app_java_home\/jre\/lib\/ext"/--add-modules=ALL-MODULE-PATH/g' "ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh" && \
+  app_java_home=/opt/java ./ibgateway-${IB_GATEWAY_VERSION}-standalone-linux-x64.sh -q -dir /root/Jts/ibgateway/${IB_GATEWAY_VERSION}
+
+# Install IBC
+RUN curl -sSOL https://github.com/IbcAlpha/IBC/releases/download/${IBC_VERSION}-Update.1/IBCLinux-${IBC_VERSION}.zip && \
   mkdir /root/ibc && \
   unzip ./IBCLinux-${IBC_VERSION}.zip -d /root/ibc && \
   chmod -R u+x /root/ibc/*.sh && \
@@ -49,9 +60,11 @@ COPY ./scripts /root/scripts
 FROM ubuntu:22.04
 
 ENV IB_GATEWAY_VERSION=10.19.2l
+
 # IB Gateway user constants
 ARG USER_ID="${USER_ID:-1000}"
 ARG USER_GID="${USER_GID:-1000}"
+
 # IBC env vars
 ENV HOME=/home/ibgateway
 ENV TWS_MAJOR_VRSN=${IB_GATEWAY_VERSION}
@@ -63,15 +76,17 @@ ENV IBC_INI=${HOME}/ibc/config.ini
 ENV IBC_INI_TMPL=${IBC_INI}.tmpl
 ENV SCRIPT_PATH=${HOME}/scripts
 ENV GATEWAY_OR_TWS=gateway
+
 # Copy files
-COPY --from=setup /usr/local/i4j_jres/ /usr/local/i4j_jres
+COPY --from=setup /usr/local /usr/local
 COPY --chown=${USER_ID}:${USER_GID} --from=setup /root/ ${HOME}
+COPY --from=setup /opt /opt
 
 # Prepare system
 RUN apt-get update -y && \
   apt-get upgrade -y && \
   DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends --yes \
-  gettext-base socat xvfb x11vnc sshpass openssh-client && \
+  gettext-base socat xvfb x11vnc sshpass openssh-client netcat && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/* && \
   groupadd --gid ${USER_GID} ibgateway && \

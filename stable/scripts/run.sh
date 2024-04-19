@@ -83,15 +83,41 @@ start_IBC() {
 }
 
 start_process() {
-	# set API and socat ports
-	set_ports
-	# apply settings
-	apply_settings
-	# forward ports, socat/ssh
-	port_forwarding
+    # set API and socat ports
+    set_ports
 
-	start_IBC
+    # apply settings
+    apply_settings
+    
+    # wait for IB Gateway to start and listen on the expected port
+    # wait_for_ib_gateway
+
+    # forward ports, socat/ssh
+    port_forwarding
+
+    start_IBC
 }
+
+# wait_for_ib_gateway() {
+#     local timeout=60
+#     local start_time=$(date +%s)
+# 	local port=4002
+# 	echo "Waiting for IB Gateway to start and listen on port ${port}..."
+    
+#     while ! nc -z 127.0.0.1 "${port}"; do
+#         sleep 1
+#         local current_time=$(date +%s)
+#         local elapsed_time=$((current_time - start_time))
+        
+#         if [ ${elapsed_time} -ge ${timeout} ]; then
+#             echo "Timeout waiting for IB Gateway to start and listen on port ${port}."
+#             return 1
+#         fi
+#     done
+    
+#     echo "IB Gateway is running and listening on port ${port}."
+#     return 0
+# }
 
 ###############################################################################
 #####		Common Start
